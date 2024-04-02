@@ -99,7 +99,7 @@ Order by descending cost, and do not use any subqueries. */
 
 SELECT DISTINCT f.name, 
        CASE WHEN m.memid = 0 THEN 'Guest' ELSE CONCAT_WS(' ', m.firstname, m.surname) END AS member_name, 
-       CASE WHEN m.memid <> 0 THEN f.membercost ELSE f.guestcost END AS cost
+       CASE WHEN m.memid <> 0 THEN f.membercost*b.slots ELSE f.guestcost*b.slots END AS cost
 FROM  Facilities f
 INNER JOIN Bookings b ON f.facid = b.facid
 INNER JOIN Members m ON b.memid = m.memid
@@ -139,12 +139,48 @@ QUESTIONS:
 /* Q10: Produce a list of facilities with a total revenue less than 1000.
 The output of facility name and total revenue, sorted by revenue. Remember
 that there's a different cost for guests and members! */
+SELECT f.name,  
+       SUM(CASE WHEN b.memid <> 0 THEN f.membercost*b.slots ELSE f.guestcost*b.slots END) AS total_revenue
+FROM  Facilities f
+INNER JOIN Bookings b ON f.facid = b.facid
+GROUP BY f.facid
+HAVING total_revenue <1000 
+ORDER BY total_revenue
 
 /* Q11: Produce a report of members and who recommended them in alphabetic surname,firstname order */
-
+SELECT CONCAT_WS(' ', a.firstname, a.surname) AS member,
+       CONCAT_WS(' ', b.firstname, b.surname) AS recommended_by
+FROM Members a 
+INNER JOIN Members b 
+ON a.memid = b.recommendedby
+WHERE a.memid <> 0 AND b.memid <>0
+ORDER BY a.surname, a.firstname
+/*The instructions are somewhat unclear, it says to report "members", not "guests and members". 
+But, it does not specifically excluse guests, as do the following two questions
+If guests should be included, the WHERE clause should be removed*/
 
 /* Q12: Find the facilities with their usage by member, but not guests */
-
+SELECT CONCAT_WS(' ', m.firstname, m.surname) AS member_name, f.name, 
+SUM(b.slots) AS total_usage 
+FROM  Facilities f
+INNER JOIN Bookings b ON f.facid = b.facid
+INNER JOIN Members m ON b.memid = m.memid
+WHERE m.memid <> 0
+GROUP BY m.memid, f.name
 
 /* Q13: Find the facilities usage by month, but not guests */
-
+#SELECT *
+#FROM
+SELECT month, name, SUM(slots) AS total_usage
+FROM
+(
+SELECT
+MONTH(STR_TO_DATE(b.starttime, '%Y-%m-%d %H:%i:%s')) AS month,
+f.name, 
+b.slots
+FROM  Facilities f
+INNER JOIN Bookings b ON f.facid = b.facid
+WHERE b.memid <> 0
+) AS a
+GROUP BY name, month
+ORDER BY month, name
